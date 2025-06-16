@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+from io import BytesIO
 
 st.set_page_config(page_title="Dashboard", layout='wide')
 
@@ -30,6 +31,17 @@ def load_data():
 # Load data
 household_df, family_df, questionnaire_df = load_data()
 
+def plot_and_download(fig, filename):
+    buf = BytesIO()
+    fig.savefig(buf, format="jpeg", dpi=300, bbox_inches='tight')
+    st.pyplot(fig)
+    st.download_button(
+        label="Download as JPEG",
+        data=buf.getvalue(),
+        file_name=filename,
+        mime="image/jpeg"
+    )
+
 # Section: Registrations Summary
 if section == "Registrations Summary":
     st.title("Volunteer Registrations Summary")
@@ -47,7 +59,7 @@ if section == "Registrations Summary":
     ax.set_xticklabels(df['volunteer_id'], rotation=45)
     ax.legend()
     ax.set_title("Total & Average Registrations per Volunteer")
-    st.pyplot(fig)
+    plot_and_download(fig, "registrations_summary.jpeg")
 
 # Section: Age & Gender Insights
 elif section == "Age & Gender Insights":
@@ -61,7 +73,7 @@ elif section == "Age & Gender Insights":
         ax.bar(gender_total.index, gender_total.values, color=['#4A90E2', '#F78DA7', '#A0A0A0'][:len(gender_total)])
         for i, val in enumerate(gender_total.values):
             ax.text(i, val + 1, str(val), ha='center')
-        st.pyplot(fig)
+        plot_and_download(fig, "gender_total.jpeg")
 
     with col2:
         st.subheader("Gender Count by Age Group")
@@ -72,7 +84,7 @@ elif section == "Age & Gender Insights":
 
         fig, ax = plt.subplots()
         age_gender.plot(kind='bar', ax=ax, color=['#4A90E2', '#F78DA7', '#A0A0A0'][:len(age_gender.columns)])
-        st.pyplot(fig)
+        plot_and_download(fig, "gender_by_age_group.jpeg")
 
 # Section: SDG Security Questions
 elif section == "SDG Security Questions":
@@ -105,7 +117,7 @@ elif section == "SDG Security Questions":
                 for j, val in enumerate([yes, no]):
                     ax.text(j, val + 1, str(val), ha='center')
                 ax.set_ylim(0, max(yes, no) + 10)
-                st.pyplot(fig)
+                plot_and_download(fig, f"question_{qid}.jpeg")
 
 # Section: Questionnaire Responses
 elif section == "Questionnaire Responses":
@@ -120,4 +132,4 @@ elif section == "Questionnaire Responses":
     ax.set_title("Completed Questionnaire Responses by Volunteer")
     ax.set_ylabel("Count")
     ax.set_xlabel("Volunteer ID")
-    st.pyplot(fig)
+    plot_and_download(fig, "questionnaire_responses.jpeg")
