@@ -208,8 +208,9 @@ elif section == "Model Output":
                 ax.set_ylabel(metric.capitalize())
                 ax.set_title(f"{metric.capitalize()} Values of Selected Nodes")
                   # Add value labels
-                ax.bar_label(bars, fmt='%.2f', padding=3)
+             #   ax.bar_label(bars, fmt='%.2f', padding=3)
 
+               
                 plot_and_download(fig, f"{metric}_by_node.jpeg")
             else:
                 st.info("Please select 1 to 5 nodes to view the chart.")
