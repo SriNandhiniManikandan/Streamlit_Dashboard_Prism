@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
 import seaborn as sns
+import re
+import json
 
 st.set_page_config(page_title="Dashboard", layout='wide')
 
@@ -14,8 +16,17 @@ section = st.sidebar.radio("", [
     "SDG Security Questions",
     "Questionnaire Responses",
     "Model Output",
-    "Model Output - Node Values"
+    "Model Output - Node Values",
+    "Well Being Risk Indices",
+    "Well Being Risk Categories - Primary Risk Factors"
 ])
+
+
+
+
+
+
+
 
 # Cached data loading and preprocessing
 @st.cache_data
@@ -23,7 +34,8 @@ def load_data():
     household_df = pd.read_excel("Household_Details_14052025_to_16062025.xlsx")
     family_df = pd.read_excel("Household_Family_Members_14052025_to_16062025.xlsx")
     questionnaire_df = pd.read_excel("Questinnaire_Responses_14052025_to_16062025.xlsx")
-
+    
+  
     # Shared preprocessing
     household_df['created_at'] = pd.to_datetime(household_df['created_at'])
     household_df['date'] = household_df['created_at'].dt.date
@@ -44,6 +56,22 @@ def plot_and_download(fig, filename):
         file_name=filename,
         mime="image/jpeg"
     )
+
+#Node_Id to Node_name mapping
+nodeidnamemap_df = pd.read_excel("Nodeid_to_Nodename.xlsx")
+# Clean the column names and contents
+nodeidnamemap_df.columns = [col.strip() for col in nodeidnamemap_df.columns]
+# Use correct column name now that we've verified them
+nodeidnamemap_df["Node_name"] = nodeidnamemap_df["Node_name"].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+nodeidnamemap_df["Node_id"] = nodeidnamemap_df["Node_id"].astype(str).str.strip()
+
+# Create the mapping dictionary
+node_id_to_name = dict(zip(nodeidnamemap_df["Node_id"], nodeidnamemap_df["Node_name"]))
+
+
+
+
+
 
 # Section: Registrations Summary
 if section == "Registrations Summary":
@@ -245,3 +273,181 @@ elif section == "Model Output - Node Values":
 
     except FileNotFoundError:
         st.error("model_output.json not found.")
+
+
+# Section: Well Being Risk Indices
+elif section == "Well Being Risk Indices":
+    st.title("Well Being Risk Indices")
+
+    import json
+
+    try:
+        with open('model_results.json') as f:
+            data = json.load(f)
+
+        # Collect mean values from summaryStatistics for W_2 and all nodes like F4_1, G4_1, etc.
+                # SDG color mapping
+        sdg_colors = {
+            "W_2": '#A0A0A0',
+            "F4_1": '#E5243B',  # Food
+            "I4_1": '#4C9F38',  # Infrastructure
+            "H4_1": '#3F7E44',  # Health
+            "E4_1": '#F36D25',  # Economic
+            "C4_1": '#F89D2A',  # Environment
+            "G4_1": '#C5192D',  # Gender
+        }
+
+        # Custom display order: W_2 first
+        preferred_order = ["W_2", "F4_1", "I4_1", "H4_1", "E4_1", "C4_1", "G4_1"]
+
+        summary_stats = []
+        for entry in data:
+            for result in entry.get("results", []):
+                node = result.get("node")
+                stats = result.get("summaryStatistics", {})
+                mean_val = stats.get("mean")
+
+                if node in preferred_order and mean_val is not None:
+                    summary_stats.append({
+                        "node": node,
+                        "mean": round(mean_val * 100, 2),  # scale to percentage
+                        "color": sdg_colors.get(node, "#4682B4")
+                    })
+
+
+        df_wellbeing = pd.DataFrame(summary_stats)
+        df_wellbeing["node"] = pd.Categorical(df_wellbeing["node"], categories=preferred_order, ordered=True)
+        df_wellbeing = df_wellbeing.sort_values("node")
+        df_wellbeing["label"] = df_wellbeing["node"].astype(str).map(node_id_to_name).fillna(df_wellbeing["node"].astype(str))
+      # Wrap long labels
+        df_wellbeing["label"] = df_wellbeing["label"].apply(lambda x: "\n".join(x.split(" ", 3)))
+
+        if df_wellbeing.empty:
+            st.warning("No matching nodes (W_2 or *_4_*) found with mean values.")
+        else:
+            fig, ax = plt.subplots(figsize=(9, 4.5))
+           # bars = ax.bar(df_wellbeing["node"], df_wellbeing["mean"], color=df_wellbeing["color"])
+            bars = ax.bar(df_wellbeing["label"], df_wellbeing["mean"], color=df_wellbeing["color"], width=0.6)
+
+
+
+            ax.set_title("Well Being Risk Indices", fontsize=16)
+            ax.set_ylabel("Mean", fontsize=12)
+            ax.set_xlabel("Node", fontsize=7)
+           
+            plt.xticks(rotation=0, ha='center', fontsize=7)
+
+            
+
+            # Add value labels
+            for bar in ax.patches:
+                height = bar.get_height()
+                ax.annotate(f'{height:.2f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                            xytext=(0, 3), textcoords="offset points",
+                            ha='center', va='bottom')
+
+            plot_and_download(fig, "wellbeing_risk_indices_mean.jpeg")
+
+    except FileNotFoundError:
+        st.error("model_output.json not found.")
+    except json.JSONDecodeError:
+        st.error("Error decoding model_output.json. Please check the file format.")
+
+# Section: Fourth-Level Node and Parent Means
+elif section == "Well Being Risk Categories - Primary Risk Factors":
+    st.title("Well Being Risk Categories - Primary Risk Factors")
+
+    try:
+        # Load JSON result data
+        with open('model_results.json') as f:
+            model_data = json.load(f)
+        
+        mean_values = {}
+        for entry in model_data:
+            for result in entry.get("results", []):
+                node = result.get("node")
+                mean = result.get("summaryStatistics", {}).get("mean")
+                if node and mean is not None:
+                    mean_values[node] = mean
+
+        # Load node relationships
+        relationship_df = pd.read_excel("Node_relationship.xlsx").dropna(subset=["parent", "child"])
+        fourth_level_nodes = [c for c in relationship_df["child"].unique() if re.fullmatch(r"[A-Z]4_\d+", str(c))]
+        parent_map = relationship_df.groupby("child")["parent"].apply(list).to_dict()
+
+        # Display 3 charts per row
+        row = st.columns(3)
+        col_index = 0
+         
+        custom_titles = {
+            "F4_1": "Risks to Food Security",
+            "I4_1": "Risks to Infrastructure Security ",
+            "H4_1": "Risks to Health Security",
+            "E4_1": "Risks to Economic Security",
+            "C4_1": "Risks to Environment and Climate Security",
+            "G4_1": "Risks to Gender and Equality Security"
+        }
+
+        sdg_colors = {
+            "F4_1": '#E5243B',  # Food
+            "I4_1": '#4C9F38',  # Infrastructure
+            "H4_1": '#3F7E44',  # Health
+            "E4_1": '#F36D25',  # Economic
+            "C4_1": '#F89D2A',  # Environment
+            "G4_1": '#C5192D'   # Gender
+        }
+      # Prepare layout
+        row = st.columns(3)
+        col_index = 0
+
+        for node in fourth_level_nodes:
+            parents = parent_map.get(node, [])
+            nodes = [node] + parents
+            df = pd.DataFrame({
+                "node": nodes,
+                "label": [node_id_to_name.get(n, n) for n in nodes],
+                "mean": [round(mean_values.get(n, 0) * 100, 2) for n in nodes]
+            })
+
+            # Wrap long labels
+            df["label"] = df["label"].apply(lambda x: "\n".join(x.split(" ", 3)))
+
+            if not df.empty:
+                sdg_color = sdg_colors.get(node, "#4682B4")
+                palette = [sdg_color] * len(nodes)
+
+                fig, ax = plt.subplots(figsize=(4.5, 3.8))
+                sns.barplot(data=df, x="label", y="mean", ax=ax, palette=palette)
+
+                ax.set_title(custom_titles.get(node, f"{node} and Parent Nodes"), fontsize=10)
+                ax.set_ylabel("Mean")
+                ax.set_xlabel("")
+                # Add margin above tallest bar
+                y_max = df["mean"].max()
+                ax.set_ylim(0, y_max + 10)
+
+                for bar in ax.patches:
+                    height = bar.get_height()
+                    ax.annotate(f'{height:.2f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                                xytext=(0, 3), textcoords="offset points", ha='center', va='bottom')
+
+                # Display in current column
+                with row[col_index]:
+                    st.pyplot(fig)
+                    buf = BytesIO()
+                    fig.savefig(buf, format="jpeg", dpi=300, bbox_inches='tight')
+                    st.download_button(
+                        label="Download as JPEG",
+                        data=buf.getvalue(),
+                        file_name=f"{node}_mean_plot.jpeg",
+                        mime="image/jpeg"
+                    )
+
+                # Move to next column
+                col_index += 1
+                if col_index == 3:
+                    row = st.columns(3)
+                    col_index = 0
+
+    except Exception as e:
+        st.error(f"Failed to load or render charts: {e}")
