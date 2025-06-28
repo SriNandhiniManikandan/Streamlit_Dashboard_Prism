@@ -97,6 +97,8 @@ def render_node_charts(category_prefix, title, fourth_level_customs, third_level
 
     # Load node relationships
     relationship_df = pd.read_excel("Node_relationship.xlsx").dropna(subset=["parent", "child"])
+    relationship_df["parent"] = relationship_df["parent"].str.strip()
+    relationship_df["child"] = relationship_df["child"].str.strip()
     parent_map = relationship_df.groupby("child")["parent"].apply(list).to_dict()
 
     # Utility: wraps long labels
@@ -138,7 +140,7 @@ def render_node_charts(category_prefix, title, fourth_level_customs, third_level
 
             # Plot line for child
           # Plot dashed line (no marker)
-            line_label = f"{child_label}: {child_value:.2f}%"
+            line_label = f"{child_label}"
             ax.axhline(y=child_value, color='black', linestyle='--', linewidth=2, label=line_label)
 
             # Annotate value in center of plot
@@ -201,7 +203,7 @@ def render_node_charts(category_prefix, title, fourth_level_customs, third_level
 
            # ax.plot([0], [child_value], marker='o', color='black')
             # Plot dashed line (no marker)
-            line_label = f"{child_label}: {child_value:.2f}%"
+            line_label = f"{child_label}"
             ax.axhline(y=child_value, color='black', linestyle='--', linewidth=2, label=line_label)
 
             # Annotate value in center of plot
@@ -271,7 +273,7 @@ def render_node_charts(category_prefix, title, fourth_level_customs, third_level
         for i, bar in enumerate(bars):
             ax1.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1, f"{bar.get_height():.0f}",
                     ha='center', va='bottom')
-        line_label = f"{child_label_wrapped}: {child_value:.1f}%"
+        line_label = f"{child_label_wrapped}"
         ax2.axhline(y=child_value, color='black', linestyle='--', linewidth=2,label=line_label)
         ax2.annotate(f"{child_value:.1f}", xy=(x.mean(), child_value), xytext=(0, 3),
                  textcoords="offset points", ha='center')
