@@ -390,7 +390,7 @@ elif section == "Well Being Perceptions":
         96: "Gender Equality"
     }
     sdg_colors = {
-        91: '#E5243B', 92: '#4C9F38', 93: '#3F7E44',
+        91: '#DDA63A', 92: '#4C9F38', 93: '#3F7E44',
         94: '#A21942', 95: '#FD9D24', 96: '#FF3A21'
     }
 
@@ -495,7 +495,7 @@ elif section == "Well Being Risk Indices":
                 # SDG color mapping
         sdg_colors = {
             "W_2": "#18A6EC",
-            "F4_1": '#E5243B',  # Food
+            "F4_1": '#DDA63A',  # Food
             "I4_1": '#FD9D24',  # Infrastructure
             "H4_1": '#4C9F38',  # Health
             "E4_1": '#A21942',  # Economic
@@ -567,7 +567,7 @@ elif section == "Risks to Food Security":
         "F3_1": "Risks to Food Accessibility and Nutrition",
         "F3_2": "Risks to Food Stability and Availability"
     }
-    render_node_charts("F", "Food Security Category", food_custom_4, food_custom_3, '#E5243B')
+    render_node_charts("F", "Food Security Category", food_custom_4, food_custom_3, '#DDA63A')
 
 # Gender
 elif section == "Risks to Gender Equality":
